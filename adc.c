@@ -1,12 +1,17 @@
-#include "adc.h"
-#include "config.h"
+#include <stdio.h>
 
-#include <stdint.h>
-
-#include "hardware/adc.h"
 #include "pico/stdlib.h"
 
-void adc_setup(void)
+#include "hardware/adc.h"
+
+#include "config.h"
+
+#include "adc.h"
+
+
+// Inicializa ADC
+
+void adc_setup()
 {
     adc_init();
 
@@ -15,7 +20,10 @@ void adc_setup(void)
     adc_select_input(ADC_CHANNEL);
 }
 
-uint16_t adc_read_filtered(void)
+
+// Leitura média
+
+uint16_t adc_read_raw()
 {
     uint32_t soma = 0;
 
@@ -23,33 +31,50 @@ uint16_t adc_read_filtered(void)
     {
         soma += adc_read();
 
-        sleep_ms(2);
+        sleep_ms(5);
     }
 
     return soma / NUM_AMOSTRAS;
 }
 
-float adc_to_voltage(uint16_t adc_value)
-{
-    return (adc_value * ADC_VREF) / ADC_RESOLUTION;
-}
+
+// ADC para porcentagem
+
 
 float adc_to_percent(uint16_t adc_value)
 {
-    float nivel;
+    float percent =
+        ((float)(adc_value - ADC_MIN) /
+        (ADC_MAX - ADC_MIN)) * 100.0f;
 
-    nivel = ((adc_value - ADC_MIN) * 100.0f) /
-             (ADC_MAX - ADC_MIN);
+    if(percent < 0.0f)
+        percent = 0.0f;
 
-    if(nivel < 0)
-    {
-        nivel = 0;
-    }
+    if(percent > 100.0f)
+        percent = 100.0f;
 
-    if(nivel > 100)
-    {
-        nivel = 100;
-    }
+    return percent;
+}
 
-    return nivel;
+
+// porcentagem para altura
+
+
+float percent_to_height(float percent)
+{
+    return
+        (percent / 100.0f) *
+        TANQUE_ALTURA_CM;
+}
+
+
+// altura para volume
+
+
+float height_to_volume(float height_cm)
+{
+    return
+        TANQUE_COMPRIMENTO_CM *
+        TANQUE_LARGURA_CM *
+        height_cm;
 }
