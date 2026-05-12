@@ -1,29 +1,29 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-// ---------- ADC ----------
+//ADC 
 
 #define ADC_PIN 26
 #define ADC_CHANNEL 0
 
-// ------ CALIBRACAO -------
+//CALIBRACAO 
 
 #define ADC_MIN 400
 #define ADC_MAX 3600
 
-// -------- FILTRO ---------
+//FILTRO 
 
 #define NUM_AMOSTRAS 5
 
-// -------- TEMPO ----------
+//TEMPO
 
 #define TEMPO_LEITURA_MS 200
 
-// ------- HISTERESE -------
+//HISTERESE
 
 #define HISTERESE_PERCENT 3.0f
 
-// ------- ADC INFO --------
+//ADC INFO
 
 #define ADC_VREF 3.3f
 
