@@ -1,89 +1,214 @@
 #include <stdio.h>
-
 #include "pico/stdlib.h"
+#include "hardware/gpio.h"
 
 #include "config.h"
-
 #include "adc.h"
+
+
+// CONVERTE % - ALTURA
+
+
+float percentual_para_altura(float percentual)
+{
+    return (percentual / 100.0f) * TANQUE_ALTURA_CM;
+}
+
+
+// ALTURA - VOLUME
+
+
+float altura_para_volume(float altura_cm)
+{
+    return altura_cm *
+           TANQUE_LARGURA_CM *
+           TANQUE_COMPR_CM;
+}
 
 int main()
 {
     stdio_init_all();
 
-    sleep_ms(2000);
-
     adc_setup();
 
-    printf("Sistema iniciado!\n\n");
-
-    while(true)
-    {
   
-        // LEITURA ADC
+    // CONFIGURA BOMBAS
+   
+
+    gpio_init(BOMBA_A_PIN);
+    gpio_set_dir(BOMBA_A_PIN, GPIO_OUT);
+
+    gpio_init(BOMBA_B_PIN);
+    gpio_set_dir(BOMBA_B_PIN, GPIO_OUT);
+
+    gpio_put(BOMBA_A_PIN, 0);
+    gpio_put(BOMBA_B_PIN, 0);
+
+    sleep_ms(2000);
+
+
+    // LEITURA INICIAL
+
+
+    float nivel_inicial_A =
+        adc_para_percentual(
+            adc_ler_filtrado(ADC_CHANNEL_A),
+            ADC_MIN_A,
+            ADC_MAX_A);
+
+    float nivel_inicial_B =
+        adc_para_percentual(
+            adc_ler_filtrado(ADC_CHANNEL_B),
+            ADC_MIN_B,
+            ADC_MAX_B);
+
+ 
+    // CÁLCULOS
+    
+    float percentual_B = 100.0f - PERCENTUAL_A;
+
+    float volume_A_desejado =
+        VOLUME_TOTAL_ML * (PERCENTUAL_A / 100.0f);
+
+    float volume_B_desejado =
+        VOLUME_TOTAL_ML * (percentual_B / 100.0f);
+
+    printf("\n=== MISTURA ===\n");
+
+    printf("A: %.1f mL\n", volume_A_desejado);
+    printf("B: %.1f mL\n", volume_B_desejado);
+
+   
+    // LIGA BOMBAS
+    
+
+    gpio_put(BOMBA_A_PIN, 1);
+    gpio_put(BOMBA_B_PIN, 1);
+
+    bool bomba_A_ligada = true;
+    bool bomba_B_ligada = true;
+
+
+    // LOOP
+ 
+
+    while (1)
+    {
+     
+        // LEITURA TANQUE A
+     
+        float nivel_A =
+            adc_para_percentual(
+                adc_ler_filtrado(ADC_CHANNEL_A),
+                ADC_MIN_A,
+                ADC_MAX_A);
+
+  
+        // LEITURA TANQUE B
+    
+
+        float nivel_B =
+            adc_para_percentual(
+                adc_ler_filtrado(ADC_CHANNEL_B),
+                ADC_MIN_B,
+                ADC_MAX_B);
+
+
+        // CONVERTE PARA VOLUME
+
+
+        float altura_A =
+            percentual_para_altura(nivel_A);
+
+        float altura_B =
+            percentual_para_altura(nivel_B);
+
+        float volume_A_atual =
+            altura_para_volume(altura_A);
+
+        float volume_B_atual =
+            altura_para_volume(altura_B);
+
+
+        // VOLUME INICIAL
+
+
+        float altura_inicial_A =
+            percentual_para_altura(nivel_inicial_A);
+
+        float altura_inicial_B =
+            percentual_para_altura(nivel_inicial_B);
+
+        float volume_A_inicial =
+            altura_para_volume(altura_inicial_A);
+
+        float volume_B_inicial =
+            altura_para_volume(altura_inicial_B);
+
+   
+        // QUANTO JÁ SAIU
         
-        uint16_t adc_raw =
-            adc_read_raw();
+        float volume_saida_A =
+            volume_A_inicial - volume_A_atual;
+
+        float volume_saida_B =
+            volume_B_inicial - volume_B_atual;
+
+    
+        // DESLIGA BOMBAS
 
 
-        // CONVERSÕES
-        
+        if (bomba_A_ligada &&
+            volume_saida_A >= volume_A_desejado)
+        {
+            gpio_put(BOMBA_A_PIN, 0);
 
-        float nivel_percentual =
-            adc_to_percent(adc_raw);
+            bomba_A_ligada = false;
 
-        float altura_cm =
-            percent_to_height(
-                nivel_percentual);
+            printf("Bomba A desligada\n");
+        }
 
-        float volume_ml =
-            height_to_volume(
-                altura_cm);
+        if (bomba_B_ligada &&
+            volume_saida_B >= volume_B_desejado)
+        {
+            gpio_put(BOMBA_B_PIN, 0);
 
-        // ==========================================
-        // MISTURA
-        // ==========================================
+            bomba_B_ligada = false;
 
-        float percentual_a =
-            PERCENTUAL_A;
+            printf("Bomba B desligada\n");
+        }
 
-        float percentual_b =
-            100.0f - percentual_a;
 
-        float volume_a =
-            VOLUME_TOTAL_ML *
-            (percentual_a / 100.0f);
+        // MONITOR SERIAL
+    
 
-        float volume_b =
-            VOLUME_TOTAL_ML *
-            (percentual_b / 100.0f);
+        printf("\n");
 
-        // ==========================================
-        // SERIAL MONITOR
-        // ==========================================
+        printf("A -> %.1f mL / %.1f mL\n",
+               volume_saida_A,
+               volume_A_desejado);
 
-        printf("ADC: %d\n",
-               adc_raw);
+        printf("B -> %.1f mL / %.1f mL\n",
+               volume_saida_B,
+               volume_B_desejado);
 
-        printf("Nivel: %.2f %%\n",
-               nivel_percentual);
 
-        printf("Altura: %.2f cm\n",
-               altura_cm);
+        // FINALIZA
 
-        printf("Volume tanque: %.2f mL\n",
-               volume_ml);
 
-        printf("Mistura total: %.2f mL\n",
-               VOLUME_TOTAL_ML);
+        if (!bomba_A_ligada &&
+            !bomba_B_ligada)
+        {
+            printf("\nMistura concluida!\n");
 
-        printf("A: %.2f %% -> %.2f mL\n",
-               percentual_a,
-               volume_a);
+            break;
+        }
 
-        printf("B: %.2f %% -> %.2f mL\n\n",
-               percentual_b,
-               volume_b);
+        sleep_ms(LOOP_DELAY_MS);
+    }
 
-        sleep_ms(200);
+    while (1)
+    {
+        tight_loop_contents();
     }
 }
