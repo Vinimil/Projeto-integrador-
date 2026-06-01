@@ -1,15 +1,10 @@
 #include <stdio.h>
 
 #include "pico/stdlib.h"
-
 #include "hardware/adc.h"
 
 #include "config.h"
-
 #include "adc.h"
-
-
-// Inicializa ADC
 
 void adc_setup()
 {
@@ -19,9 +14,6 @@ void adc_setup()
 
     adc_select_input(ADC_CHANNEL);
 }
-
-
-// Leitura média
 
 uint16_t adc_read_raw()
 {
@@ -36,10 +28,6 @@ uint16_t adc_read_raw()
 
     return soma / NUM_AMOSTRAS;
 }
-
-
-// ADC para porcentagem
-
 
 float adc_to_percent(uint16_t adc_value)
 {
@@ -56,10 +44,6 @@ float adc_to_percent(uint16_t adc_value)
     return percent;
 }
 
-
-// porcentagem para altura
-
-
 float percent_to_height(float percent)
 {
     return
@@ -67,14 +51,10 @@ float percent_to_height(float percent)
         TANQUE_ALTURA_CM;
 }
 
-
-// altura para volume
-
-
 float height_to_volume(float height_cm)
 {
     return
-        TANQUE_COMPRIMENTO_CM *
+        TANQUE_COMPR_CM *
         TANQUE_LARGURA_CM *
         height_cm;
 }
