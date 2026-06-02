@@ -6,11 +6,7 @@
 #include "config.h"
 #include "adc.h"
 
-
-// BOMBA
-
-
-void bomba_init()
+void bomba_init(void)
 {
     gpio_init(BOMBA_PIN);
     gpio_set_dir(BOMBA_PIN, GPIO_OUT);
@@ -18,129 +14,131 @@ void bomba_init()
     gpio_put(BOMBA_PIN, 0);
 }
 
-void bomba_ligar()
+void bomba_ligar(void)
 {
     gpio_put(BOMBA_PIN, 1);
 }
 
-void bomba_desligar()
+void bomba_desligar(void)
 {
     gpio_put(BOMBA_PIN, 0);
 }
 
-
-
-void print_bar(float percent)
+float ler_volume_atual(void)
 {
-    int size = 20;
+    uint16_t raw =
+        adc_read_raw();
 
-    int filled =
-        (int)((percent / 100.0f) * size);
+    float nivel =
+        adc_to_percent(raw);
 
-    printf("[");
+    float altura =
+        percent_to_height(nivel);
 
-    for(int i = 0; i < size; i++)
-    {
-        if(i < filled)
-            printf("#");
-        else
-            printf("-");
-    }
-
-    printf("] %.1f%%\n", percent);
+    return
+        height_to_volume(altura);
 }
 
-
-// MENU
-
-
-void print_menu(
+void mostrar_menu(
     float nivel,
     float volume,
     int dose)
 {
     printf("\n");
     printf("====================================\n");
-    printf("        DOSADOR AUTOMATICO\n");
-    printf("====================================\n\n");
+    printf("      DOSADOR AUTOMATICO V1.0B\n");
+    printf("====================================\n");
 
     printf("Nivel tanque : %.1f %%\n", nivel);
-    printf("Volume       : %.0f mL\n\n", volume);
+    printf("Volume       : %.0f mL\n", volume);
+    printf("Dose atual   : %d mL\n", dose);
 
-    printf("Dose atual   : %d mL\n\n", dose);
-
+    printf("\n");
     printf("[+] aumentar dose\n");
     printf("[-] diminuir dose\n");
     printf("[s] iniciar dosagem\n");
-    printf("[r] atualizar\n");
-    printf("[q] reset\n\n");
-
-    printf("> ");
+    printf("[q] dose padrao\n");
+    printf("\n> ");
 }
 
-
-// Dosagem
-
-void dosar(float volume_disponivel, int dose_ml)
+void dosar(int dose_ml)
 {
-    if(volume_disponivel < dose_ml)
+    float volume_inicial =
+        ler_volume_atual();
+
+    if(volume_inicial < dose_ml)
     {
-        printf("\nERRO: Tanque sem volume suficiente.\n");
+        printf("\n");
+        printf("ERRO: volume insuficiente\n");
+        printf("\n");
         return;
     }
 
-    float volume_corrigido =
-        dose_ml - COMPENSACAO_ML;
-
-    if(volume_corrigido < 0)
-        volume_corrigido = 0;
-
-    float tempo_segundos =
-        volume_corrigido /
-        VAZAO_BOMBA_ML_S;
-
-    uint32_t tempo_ms =
-        (uint32_t)(tempo_segundos * 1000.0f);
-
-    if(tempo_ms < TEMPO_MIN_BOMBA_MS)
-        tempo_ms = TEMPO_MIN_BOMBA_MS;
+    float alvo =
+        volume_inicial -
+        dose_ml +
+        COMPENSACAO_ML;
 
     printf("\n");
-    printf("====================================\n");
-    printf("            DOSANDO\n");
-    printf("====================================\n\n");
-
-    printf("Dose solicitada : %d mL\n", dose_ml);
-    printf("Compensacao     : %.1f mL\n", COMPENSACAO_ML);
-    printf("Tempo calculado : %lu ms\n", tempo_ms);
+    printf("Volume inicial : %.0f mL\n", volume_inicial);
+    printf("Dose solicitada: %d mL\n", dose_ml);
+    printf("Volume alvo    : %.0f mL\n", alvo);
+    printf("\n");
 
     bomba_ligar();
 
-    uint32_t inicio = to_ms_since_boot(get_absolute_time());
+    while(true)
+    {
+        float volume_atual =
+            ler_volume_atual();
+
+        float retirado =
+            volume_inicial -
+            volume_atual;
+
+        float restante =
+            dose_ml -
+            retirado;
+
+        printf(
+            "\rRetirado: %.0f / %d mL",
+            retirado,
+            dose_ml
+        );
+
+        fflush(stdout);
+
+        if(restante <= JANELA_APROXIMACAO_ML)
+            break;
+
+        sleep_ms(50);
+    }
 
     while(true)
     {
-        uint32_t agora =
-            to_ms_since_boot(
-                get_absolute_time());
+        float volume_atual =
+            ler_volume_atual();
 
-        uint32_t decorrido =
-            agora - inicio;
-
-        float percentual =
-            ((float)decorrido /
-            (float)tempo_ms) * 100.0f;
-
-        if(percentual > 100.0f)
-            percentual = 100.0f;
-
-        printf("\r");
-        print_bar(percentual);
-
-        if(decorrido >= tempo_ms)
+        if(volume_atual <= alvo)
             break;
 
-        sleep_ms(100);
+        bomba_ligar();
+        sleep_ms(PULSO_LIGADO_MS);
+
+        bomba_desligar();
+        sleep_ms(PULSO_DESLIGADO_MS);
+
+        float retirado =
+            volume_inicial -
+            volume_atual;
+
+        printf(
+            "\rAjuste fino: %.0f / %d mL",
+            retirado,
+            dose_ml
+        );
+
+        fflush(stdout);
     }
 
     bomba_desligar();
@@ -150,7 +148,6 @@ void dosar(float volume_disponivel, int dose_ml)
     printf("\n");
 }
 
-
 int main()
 {
     stdio_init_all();
@@ -159,9 +156,9 @@ int main()
 
     bomba_init();
 
-    int dose = 700;
-
     sleep_ms(2000);
+
+    int dose = 700;
 
     while(true)
     {
@@ -177,7 +174,7 @@ int main()
         float volume =
             height_to_volume(altura);
 
-        print_menu(
+        mostrar_menu(
             nivel,
             volume,
             dose
@@ -210,7 +207,7 @@ int main()
 
         if(c == 's')
         {
-            dosar(volume, dose);
+            dosar(dose);
         }
 
         if(c == 'q')
@@ -218,7 +215,7 @@ int main()
             dose = 700;
         }
 
-        sleep_ms(200);
+        sleep_ms(100);
     }
 
     return 0;
