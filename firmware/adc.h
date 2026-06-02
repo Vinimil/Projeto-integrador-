@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 
-void adc_setup();
+void adc_setup(void);
 
-uint16_t adc_read_raw();
+uint16_t adc_read_raw(void);
 
 float adc_to_percent(uint16_t adc_value);
 
