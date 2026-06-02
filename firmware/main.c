@@ -1,9 +1,33 @@
 #include <stdio.h>
 
 #include "pico/stdlib.h"
+#include "hardware/gpio.h"
 
 #include "config.h"
 #include "adc.h"
+
+
+// BOMBA
+
+
+void bomba_init()
+{
+    gpio_init(BOMBA_PIN);
+    gpio_set_dir(BOMBA_PIN, GPIO_OUT);
+
+    gpio_put(BOMBA_PIN, 0);
+}
+
+void bomba_ligar()
+{
+    gpio_put(BOMBA_PIN, 1);
+}
+
+void bomba_desligar()
+{
+    gpio_put(BOMBA_PIN, 0);
+}
+
 
 
 void print_bar(float percent)
@@ -27,6 +51,9 @@ void print_bar(float percent)
 }
 
 
+// MENU
+
+
 void print_menu(
     float nivel,
     float volume,
@@ -38,13 +65,13 @@ void print_menu(
     printf("====================================\n\n");
 
     printf("Nivel tanque : %.1f %%\n", nivel);
-    printf("Volume       : %.1f mL\n\n", volume);
+    printf("Volume       : %.0f mL\n\n", volume);
 
     printf("Dose atual   : %d mL\n\n", dose);
 
-    printf("[+] aumentar\n");
-    printf("[-] diminuir\n");
-    printf("[s] iniciar\n");
+    printf("[+] aumentar dose\n");
+    printf("[-] diminuir dose\n");
+    printf("[s] iniciar dosagem\n");
     printf("[r] atualizar\n");
     printf("[q] reset\n\n");
 
@@ -52,38 +79,75 @@ void print_menu(
 }
 
 
-void dosar(int dose)
+// Dosagem
+
+void dosar(float volume_disponivel, int dose_ml)
 {
-    printf("\n");
-    printf("====================================\n");
-    printf("             DOSANDO\n");
-    printf("====================================\n\n");
-
-    int atual = 0;
-
-    while(atual < dose)
+    if(volume_disponivel < dose_ml)
     {
-        atual += 50;
-
-        if(atual > dose)
-            atual = dose;
-
-        float percentual =
-            ((float)atual / dose) * 100.0f;
-
-        printf(
-            "Dose: %d / %d mL\n",
-            atual,
-            dose
-        );
-
-        print_bar(percentual);
-
-        sleep_ms(300);
+        printf("\nERRO: Tanque sem volume suficiente.\n");
+        return;
     }
 
+    float volume_corrigido =
+        dose_ml - COMPENSACAO_ML;
+
+    if(volume_corrigido < 0)
+        volume_corrigido = 0;
+
+    float tempo_segundos =
+        volume_corrigido /
+        VAZAO_BOMBA_ML_S;
+
+    uint32_t tempo_ms =
+        (uint32_t)(tempo_segundos * 1000.0f);
+
+    if(tempo_ms < TEMPO_MIN_BOMBA_MS)
+        tempo_ms = TEMPO_MIN_BOMBA_MS;
+
     printf("\n");
-    printf("DOSAGEM CONCLUIDA\n\n");
+    printf("====================================\n");
+    printf("            DOSANDO\n");
+    printf("====================================\n\n");
+
+    printf("Dose solicitada : %d mL\n", dose_ml);
+    printf("Compensacao     : %.1f mL\n", COMPENSACAO_ML);
+    printf("Tempo calculado : %lu ms\n", tempo_ms);
+
+    bomba_ligar();
+
+    uint32_t inicio = to_ms_since_boot(get_absolute_time());
+
+    while(true)
+    {
+        uint32_t agora =
+            to_ms_since_boot(
+                get_absolute_time());
+
+        uint32_t decorrido =
+            agora - inicio;
+
+        float percentual =
+            ((float)decorrido /
+            (float)tempo_ms) * 100.0f;
+
+        if(percentual > 100.0f)
+            percentual = 100.0f;
+
+        printf("\r");
+        print_bar(percentual);
+
+        if(decorrido >= tempo_ms)
+            break;
+
+        sleep_ms(100);
+    }
+
+    bomba_desligar();
+
+    printf("\n");
+    printf("DOSAGEM CONCLUIDA\n");
+    printf("\n");
 }
 
 
@@ -92,6 +156,8 @@ int main()
     stdio_init_all();
 
     adc_setup();
+
+    bomba_init();
 
     int dose = 700;
 
@@ -137,18 +203,14 @@ int main()
         }
 
         if(dose > DOSE_MAX_ML)
-        {
             dose = DOSE_MAX_ML;
-        }
 
         if(dose < DOSE_MIN_ML)
-        {
             dose = DOSE_MIN_ML;
-        }
 
         if(c == 's')
         {
-            dosar(dose);
+            dosar(volume, dose);
         }
 
         if(c == 'q')
