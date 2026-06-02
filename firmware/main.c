@@ -1,17 +1,17 @@
 #include <stdio.h>
-#include <string.h>
 
 #include "pico/stdlib.h"
+
 #include "config.h"
 #include "adc.h"
 
 
-//  BARRA
-
 void print_bar(float percent)
 {
     int size = 20;
-    int filled = (int)((percent / 100.0f) * size);
+
+    int filled =
+        (int)((percent / 100.0f) * size);
 
     printf("[");
 
@@ -27,11 +27,13 @@ void print_bar(float percent)
 }
 
 
-// Interface
-
-void print_menu(float nivel, float volume, int dose)
+void print_menu(
+    float nivel,
+    float volume,
+    int dose)
 {
-    printf("\n====================================\n");
+    printf("\n");
+    printf("====================================\n");
     printf("        DOSADOR AUTOMATICO\n");
     printf("====================================\n\n");
 
@@ -43,18 +45,17 @@ void print_menu(float nivel, float volume, int dose)
     printf("[+] aumentar\n");
     printf("[-] diminuir\n");
     printf("[s] iniciar\n");
-    printf("[r] refresh\n");
+    printf("[r] atualizar\n");
     printf("[q] reset\n\n");
 
     printf("> ");
 }
 
 
-// Dosagem 
-
 void dosar(int dose)
 {
-    printf("\n====================================\n");
+    printf("\n");
+    printf("====================================\n");
     printf("             DOSANDO\n");
     printf("====================================\n\n");
 
@@ -63,22 +64,33 @@ void dosar(int dose)
     while(atual < dose)
     {
         atual += 50;
-        if(atual > dose) atual = dose;
 
-        float p = ((float)atual / dose) * 100.0f;
+        if(atual > dose)
+            atual = dose;
 
-        printf("Dose: %d / %d mL\n", atual, dose);
-        print_bar(p);
+        float percentual =
+            ((float)atual / dose) * 100.0f;
+
+        printf(
+            "Dose: %d / %d mL\n",
+            atual,
+            dose
+        );
+
+        print_bar(percentual);
 
         sleep_ms(300);
     }
 
-    printf("\nDOSAGEM CONCLUIDA\n\n");
+    printf("\n");
+    printf("DOSAGEM CONCLUIDA\n\n");
 }
+
 
 int main()
 {
     stdio_init_all();
+
     adc_setup();
 
     int dose = 700;
@@ -87,15 +99,26 @@ int main()
 
     while(true)
     {
-        uint16_t raw = adc_read_raw();
+        uint16_t raw =
+            adc_read_raw();
 
-        float nivel = adc_to_percent(raw);
-        float altura = percent_to_height(nivel);
-        float volume = height_to_volume(altura);
+        float nivel =
+            adc_to_percent(raw);
 
-        print_menu(nivel, volume, dose);
+        float altura =
+            percent_to_height(nivel);
 
-        char c = getchar_timeout_us(0);
+        float volume =
+            height_to_volume(altura);
+
+        print_menu(
+            nivel,
+            volume,
+            dose
+        );
+
+        int c =
+            getchar_timeout_us(0);
 
         if(c == PICO_ERROR_TIMEOUT)
         {
@@ -104,13 +127,24 @@ int main()
         }
 
         if(c == '+')
-            dose += DOSE_STEP;
+        {
+            dose += DOSE_STEP_ML;
+        }
 
         if(c == '-')
-            dose -= DOSE_STEP;
+        {
+            dose -= DOSE_STEP_ML;
+        }
 
-        if(dose > DOSE_MAX_ML) dose = DOSE_MAX_ML;
-        if(dose < DOSE_MIN_ML) dose = DOSE_MIN_ML;
+        if(dose > DOSE_MAX_ML)
+        {
+            dose = DOSE_MAX_ML;
+        }
+
+        if(dose < DOSE_MIN_ML)
+        {
+            dose = DOSE_MIN_ML;
+        }
 
         if(c == 's')
         {
@@ -124,4 +158,6 @@ int main()
 
         sleep_ms(200);
     }
+
+    return 0;
 }
