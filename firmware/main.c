@@ -1,221 +1,170 @@
 #include <stdio.h>
-
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
+#include "pico/stdio_usb.h"
+#include "pico/error.h"
 
 #include "config.h"
 #include "adc.h"
 
-void bomba_init(void)
-{
+
+void bomba_setup(void) {
     gpio_init(BOMBA_PIN);
     gpio_set_dir(BOMBA_PIN, GPIO_OUT);
-
-    gpio_put(BOMBA_PIN, 0);
+    gpio_put(BOMBA_PIN, 0); 
 }
 
-void bomba_ligar(void)
-{
+void bomba_ligar(void) {
     gpio_put(BOMBA_PIN, 1);
 }
 
-void bomba_desligar(void)
-{
+void bomba_desligar(void) {
     gpio_put(BOMBA_PIN, 0);
 }
 
-float ler_volume_atual(void)
-{
-    uint16_t raw =
-        adc_read_raw();
 
-    float nivel =
-        adc_to_percent(raw);
-
-    float altura =
-        percent_to_height(nivel);
-
-    return
-        height_to_volume(altura);
+float ler_volume_atual(void) {
+    uint16_t adc_raw = adc_read_raw();
+    float percent = adc_to_percent(adc_raw);
+    float altura = percent_to_height(percent);
+    return height_to_volume(altura);
 }
 
-void mostrar_menu(
-    float nivel,
-    float volume,
-    int dose)
+
+void dosar(float quantidade_ml)
 {
-    printf("\n");
-    printf("====================================\n");
-    printf("      DOSADOR AUTOMATICO V1.0B\n");
-    printf("====================================\n");
+    float volume_inicial = ler_volume_atual();
+    float volume_alvo = volume_inicial - quantidade_ml; 
 
-    printf("Nivel tanque : %.1f %%\n", nivel);
-    printf("Volume       : %.0f mL\n", volume);
-    printf("Dose atual   : %d mL\n", dose);
-
-    printf("\n");
-    printf("[+] aumentar dose\n");
-    printf("[-] diminuir dose\n");
-    printf("[s] iniciar dosagem\n");
-    printf("[q] dose padrao\n");
-    printf("\n> ");
-}
-
-void dosar(int dose_ml)
-{
-    float volume_inicial =
-        ler_volume_atual();
-
-    if(volume_inicial < dose_ml)
-    {
-        printf("\n");
-        printf("ERRO: volume insuficiente\n");
-        printf("\n");
-        return;
-    }
-
-    float alvo =
-        volume_inicial -
-        dose_ml +
-        COMPENSACAO_ML;
-
-    printf("\n");
-    printf("Volume inicial : %.0f mL\n", volume_inicial);
-    printf("Dose solicitada: %d mL\n", dose_ml);
-    printf("Volume alvo    : %.0f mL\n", alvo);
-    printf("\n");
-
-    bomba_ligar();
+    printf("\n========================================================\n");
+    printf("BOMBA LIGADA - DOSANDO %.0f mL\n", quantidade_ml);
+    printf("========================================================\n");
 
     while(true)
     {
-        float volume_atual =
-            ler_volume_atual();
+        float volume_atual = ler_volume_atual();
+        float erro_atual = volume_atual - volume_alvo; 
 
-        float retirado =
-            volume_inicial -
-            volume_atual;
-
-        float restante =
-            dose_ml -
-            retirado;
-
-        printf(
-            "\rRetirado: %.0f / %d mL",
-            retirado,
-            dose_ml
-        );
-
+        printf("\rAtual = %4.0f mL | Falta tirar = %4.0f mL \033[K", volume_atual, erro_atual);
         fflush(stdout);
 
-        if(restante <= JANELA_APROXIMACAO_ML)
-            break;
+       
+        if(erro_atual <= COMPENSACAO_ML)
+        {
+            bomba_desligar(); 
+            printf("\n  -> Alvo detectado! Aguardando a agua acalmar para confirmar...\n");
+            
+            sleep_ms(1200); 
+            
+            
+            float volume_prova_real = ler_volume_atual();
+            float erro_prova_real = volume_prova_real - volume_alvo;
+            
+            
+            if (erro_prova_real <= (COMPENSACAO_ML + 10.0f)) {
+                printf("[ CONFIRMADO ] Desligamento definitivo.\n");
+                break; 
+            } else {
+                printf("[ ALARME FALSO ] Foi uma onda. Faltam %.0f mL. Retomando bomba...\n", erro_prova_real);
+                continue; 
+            }
+        }
 
-        sleep_ms(50);
+      
+        if(erro_atual <= JANELA_APROXIMACAO_ML)
+        {
+            bomba_ligar();
+            sleep_ms(PULSO_LIGADO_MS);
+            bomba_desligar();
+            sleep_ms(PULSO_DESLIGADO_MS);
+        }
+        else
+        {
+            bomba_ligar();
+            sleep_ms(LOOP_DELAY_MS);
+        }
     }
 
-    while(true)
-    {
-        float volume_atual =
-            ler_volume_atual();
+  
+    printf("Calculando resumo final...\n");
+    sleep_ms(1000); 
+    
+    float volume_final = ler_volume_atual();
 
-        if(volume_atual <= alvo)
-            break;
-
-        bomba_ligar();
-        sleep_ms(PULSO_LIGADO_MS);
-
-        bomba_desligar();
-        sleep_ms(PULSO_DESLIGADO_MS);
-
-        float retirado =
-            volume_inicial -
-            volume_atual;
-
-        printf(
-            "\rAjuste fino: %.0f / %d mL",
-            retirado,
-            dose_ml
-        );
-
-        fflush(stdout);
-    }
-
-    bomba_desligar();
-
-    printf("\n");
-    printf("DOSAGEM CONCLUIDA\n");
-    printf("\n");
+    printf("\n========================================================\n");
+    printf("                  RESUMO DA DOSAGEM                     \n");
+    printf("========================================================\n");
+    printf(" Nivel ANTES:  %4.0f mL\n", volume_inicial);
+    printf(" Nivel DEPOIS: %4.0f mL\n", volume_final);
+    printf(" Total Tirado: %4.0f mL\n", volume_inicial - volume_final);
+    printf("========================================================\n\n");
 }
 
-int main()
-{
-    stdio_init_all();
+
+int main(void) {
+    stdio_init_all(); 
+
+    while (!stdio_usb_connected()) {
+        sleep_ms(100);
+    }
+    sleep_ms(1000); 
 
     adc_setup();
+    bomba_setup();
 
-    bomba_init();
+    while (true) {
+        
+       
 
-    sleep_ms(2000);
+        printf("\033[2J\033[H"); 
+        printf("========================================================\n");
+        printf("               SISTEMA PRONTO E DESLIGADO               \n");
+        printf("========================================================\n");
+        printf(" Para dosar, digite o valor em mL e pressione [ENTER]\n");
+        printf("========================================================\n\n");
 
-    int dose = 700;
+        while (true) {
+            float volume = ler_volume_atual();
 
-    while(true)
-    {
-        uint16_t raw =
-            adc_read_raw();
+            
+            printf("\r  -> NIVEL DO TANQUE: %4.0f mL   |   > Digite aqui: \033[K", volume);
+            fflush(stdout);
 
-        float nivel =
-            adc_to_percent(raw);
+            int c = getchar_timeout_us(200000);
 
-        float altura =
-            percent_to_height(nivel);
-
-        float volume =
-            height_to_volume(altura);
-
-        mostrar_menu(
-            nivel,
-            volume,
-            dose
-        );
-
-        int c =
-            getchar_timeout_us(0);
-
-        if(c == PICO_ERROR_TIMEOUT)
-        {
-            sleep_ms(200);
-            continue;
+            
+            if (c != PICO_ERROR_TIMEOUT) {
+                ungetc(c, stdin); 
+                break;            
+            }
         }
+        
+        float dose_escolhida = 0.0f;
+        
+        
+        if (scanf("%f", &dose_escolhida) == 1) {
+            
+            int lixo;
+            while ((lixo = getchar_timeout_us(0)) != PICO_ERROR_TIMEOUT) { } 
 
-        if(c == '+')
-        {
-            dose += DOSE_STEP_ML;
+            if (dose_escolhida >= DOSE_MIN_ML && dose_escolhida <= DOSE_MAX_ML) {
+                
+                dosar(dose_escolhida);
+                
+                while ((lixo = getchar_timeout_us(0)) != PICO_ERROR_TIMEOUT) { }
+                printf("[ AVISO ] Pode retirar o recipiente.\n");
+                printf("Pressione ENTER para fazer uma nova dosagem...\n");
+                getchar(); 
+
+            } else {
+                printf("\n\n[ERRO] Valor invalido! Escolha um valor entre %d e %d.\n", DOSE_MIN_ML, DOSE_MAX_ML);
+                sleep_ms(3000); 
+            }
+            
+        } else {
+            int lixo;
+            while ((lixo = getchar_timeout_us(0)) != PICO_ERROR_TIMEOUT) { }
         }
-
-        if(c == '-')
-        {
-            dose -= DOSE_STEP_ML;
-        }
-
-        if(dose > DOSE_MAX_ML)
-            dose = DOSE_MAX_ML;
-
-        if(dose < DOSE_MIN_ML)
-            dose = DOSE_MIN_ML;
-
-        if(c == 's')
-        {
-            dosar(dose);
-        }
-
-        if(c == 'q')
-        {
-            dose = 700;
-        }
-
-        sleep_ms(100);
     }
 
     return 0;
