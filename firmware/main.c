@@ -8,6 +8,15 @@
 #include "config.h"
 #include "adc.h"
 #include "calibracao.h"
+#include "lcd_i2c.h"
+
+float obter_fator(float dose_ml)
+{
+    if(dose_ml <= 250)
+        return 1.22f;
+
+    return 1.44f;
+}
 
 void bomba_setup(void)
 {
@@ -48,18 +57,10 @@ void aplicar_pulso(uint32_t tempo_ms)
 
 void dosar(float dose_ml)
 {
-    float fator;
+    float fator = obter_fator(dose_ml);
 
-    if(dose_ml >= 300)
-    {
-        fator = 1.45f;
-    }
-    else
-    {
-        fator = 1.18f;
-    }
-
-    float volume_inicial = ler_volume_filtrado();
+    float volume_inicial =
+        ler_volume_filtrado();
 
     printf("\n====================================\n");
     printf("INICIANDO DOSAGEM\n");
@@ -69,12 +70,17 @@ void dosar(float dose_ml)
     printf("Fator usado    : %.2f\n", fator);
     printf("====================================\n");
 
-    float ultimo_volume = volume_inicial;
+    lcd_tela_dosando(dose_ml);
+
+    float ultimo_volume =
+        volume_inicial;
+
     int sem_mudanca = 0;
 
     while(true)
     {
-        float volume = ler_volume_filtrado();
+        float volume =
+            ler_volume_filtrado();
 
         float retirado_sensor =
             volume_inicial - volume;
@@ -84,6 +90,27 @@ void dosar(float dose_ml)
 
         float restante =
             dose_ml - retirado;
+
+        char linha1[17];
+        char linha2[17];
+
+        snprintf(linha1,
+                 sizeof(linha1),
+                 "Dose %.0fmL",
+                 dose_ml);
+
+        snprintf(linha2,
+                 sizeof(linha2),
+                 "Falta %.0fmL",
+                 restante > 0 ? restante : 0);
+
+        lcd_clear();
+
+        lcd_set_cursor(0,0);
+        lcd_print(linha1);
+
+        lcd_set_cursor(0,1);
+        lcd_print(linha2);
 
         if(restante <= 0)
         {
@@ -95,24 +122,26 @@ void dosar(float dose_ml)
 
         if(restante > 180)
         {
-            pulso = 1200;
+            pulso = PULSO_LONGO_MS;
         }
         else if(restante > 50)
         {
-            pulso = 700;
+            pulso = PULSO_MEDIO_MS;
         }
         else
         {
-            pulso = 300;
+            pulso = PULSO_CURTO_MS;
         }
 
         aplicar_pulso(pulso);
 
         sleep_ms(TEMPO_ESTABILIZAR_MS);
 
-        uint16_t adc = adc_read_raw();
+        uint16_t adc =
+            adc_read_raw();
 
-        volume = ler_volume_filtrado();
+        volume =
+            ler_volume_filtrado();
 
         retirado_sensor =
             volume_inicial - volume;
@@ -146,6 +175,16 @@ void dosar(float dose_ml)
         if(sem_mudanca >= MAX_SEM_MUDANCA)
         {
             printf("\nERRO: SENSOR SEM RESPOSTA\n");
+
+            lcd_clear();
+            lcd_set_cursor(0,0);
+            lcd_print("ERRO SENSOR");
+
+            lcd_set_cursor(0,1);
+            lcd_print("Sem resposta");
+
+            bomba_desligar();
+
             return;
         }
     }
@@ -170,6 +209,23 @@ void dosar(float dose_ml)
     printf("Sensor       : %.0f mL\n", retirado_sensor);
     printf("Estimado     : %.0f mL\n", retirado_estimado);
     printf("====================================\n");
+
+    lcd_clear();
+
+    lcd_set_cursor(0,0);
+    lcd_print("Dose Concluida");
+
+    char resultado[17];
+
+    snprintf(resultado,
+             sizeof(resultado),
+             "%.0fmL OK",
+             dose_ml);
+
+    lcd_set_cursor(0,1);
+    lcd_print(resultado);
+
+    sleep_ms(3000);
 }
 
 int main()
@@ -178,6 +234,8 @@ int main()
 
     adc_setup();
     bomba_setup();
+
+    lcd_init_display();
 
     while(!stdio_usb_connected())
     {
@@ -193,6 +251,21 @@ int main()
 
         float volume =
             ler_volume_filtrado();
+
+        lcd_clear();
+
+        char linha1[17];
+
+        snprintf(linha1,
+                 sizeof(linha1),
+                 "Vol:%.0fmL",
+                 volume);
+
+        lcd_set_cursor(0,0);
+        lcd_print(linha1);
+
+        lcd_set_cursor(0,1);
+        lcd_print("1:250 2:300 3:350");
 
         printf("\n====================================\n");
         printf("SISTEMA PRONTO\n");
