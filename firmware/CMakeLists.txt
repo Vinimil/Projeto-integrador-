@@ -35,6 +35,8 @@ add_executable(proj
 
     adc.c
     calibracao.c
+
+    lcd_i2c.c
 )
 
 target_include_directories(proj PRIVATE
@@ -47,6 +49,7 @@ target_link_libraries(proj
 
     hardware_adc
     hardware_gpio
+    hardware_i2c
 )
 
 pico_enable_stdio_usb(proj 1)
