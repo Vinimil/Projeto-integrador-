@@ -7,10 +7,4 @@ void adc_setup(void);
 
 uint16_t adc_read_raw(void);
 
-float adc_to_percent(uint16_t adc_value);
-
-float percent_to_height(float percent);
-
-float height_to_volume(float height_cm);
-
 #endif
