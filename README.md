@@ -1,5 +1,13 @@
 Sistema de Dosagem Automática de Água com Raspberry Pi Pico
 
+
+Trabalho realizado pelo grupo:
+
+João Lourenço Medeiros Martins 22.00369-0
+Nicolas Lemos Nunes Tamashiro 22.00728-8
+Theo Franchin Peres 22.01094-7
+Vinicius Filgueiras dos Santos 23.95007-2
+
  Descrição do Projeto:
 
 Este projeto consiste no desenvolvimento de um sistema automatizado para monitoramento de nível e dosagem controlada de água utilizando um Raspberry Pi Pico como unidade de processamento.
