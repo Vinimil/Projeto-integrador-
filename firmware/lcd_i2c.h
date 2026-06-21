@@ -11,10 +11,4 @@ void lcd_set_cursor(uint8_t col, uint8_t row);
 
 void lcd_print(const char *text);
 
-void lcd_tela_pronto(float volume);
-
-void lcd_tela_dosando(float dose);
-
-void lcd_tela_final(float dose);
-
 #endif
