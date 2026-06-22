@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 
 #include "pico/stdlib.h"
@@ -16,6 +17,11 @@ float obter_fator(float dose_ml)
         return 1.22f;
 
     return 1.44f;
+}
+
+float adc_para_tensao(uint16_t adc)
+{
+    return (adc * 3.3f) / 4095.0f;
 }
 
 void bomba_setup(void)
@@ -46,11 +52,6 @@ float ler_volume_filtrado(void)
     }
 
     return soma / FILTRO_LEITURAS;
-}
-
-float adc_para_tensao(uint16_t adc)
-{
-    return (adc * 3.3f) / 4095.0f;
 }
 
 void aplicar_pulso(uint32_t tempo_ms)
@@ -90,6 +91,78 @@ void mostrar_tela_principal(void)
 
     lcd_set_cursor(0,1);
     lcd_print(linha2);
+}
+
+void modo_calibracao(void)
+{
+    char entrada[32];
+
+    printf("\n");
+    printf("====================================\n");
+    printf("MODO CALIBRACAO\n");
+    printf("====================================\n");
+    printf("Digite -1 para sair\n\n");
+
+    while(true)
+    {
+        uint16_t adc =
+            adc_read_raw();
+
+        float tensao =
+            adc_para_tensao(adc);
+
+        float volume_atual =
+            adc_para_volume(adc);
+
+        lcd_clear();
+
+        char linha1[17];
+        char linha2[17];
+
+        snprintf(linha1,
+                 sizeof(linha1),
+                 "T:%1.2fV",
+                 tensao);
+
+        snprintf(linha2,
+                 sizeof(linha2),
+                 "Vol:%4.0fmL",
+                 volume_atual);
+
+        lcd_set_cursor(0,0);
+        lcd_print(linha1);
+
+        lcd_set_cursor(0,1);
+        lcd_print(linha2);
+
+        printf("\n");
+        printf("------------------------------------\n");
+        printf("ADC    : %u\n", adc);
+        printf("Tensao : %.3f V\n", tensao);
+        printf("------------------------------------\n");
+        printf("Volume (mL): ");
+
+        scanf("%31s", entrada);
+
+        float volume =
+            atof(entrada);
+
+        if(volume < 0)
+        {
+            printf("\nSaindo da calibracao...\n");
+            break;
+        }
+
+        adc = adc_read_raw();
+
+        printf("\n");
+        printf("ADC = %u -> %.0f mL\n",
+               adc,
+               volume);
+
+        printf("Tabela para copiar:\n");
+        printf("%u,\n", adc);
+    }
 }
 
 void dosar(float dose_ml)
@@ -170,8 +243,25 @@ void dosar(float dose_ml)
 
         sleep_ms(TEMPO_ESTABILIZAR_MS);
 
+        uint16_t adc =
+            adc_read_raw();
+
         volume =
             ler_volume_filtrado();
+
+        retirado_sensor =
+            volume_inicial - volume;
+
+        retirado =
+            retirado_sensor * fator;
+
+        restante =
+            dose_ml - retirado;
+
+        printf("T=%.2fV  Vol=%.0fmL  Falta=%.0fmL\n",
+               adc_para_tensao(adc),
+               volume,
+               restante);
 
         if(fabs(volume - ultimo_volume) < 3.0f)
             sem_mudanca++;
@@ -238,9 +328,7 @@ int main()
     stdio_init_all();
 
     adc_setup();
-
     bomba_setup();
-
     lcd_init_display();
 
     while(!stdio_usb_connected())
@@ -275,9 +363,10 @@ int main()
         printf("Volume : %.0f mL\n", volume);
         printf("Tensao : %.2f V\n", tensao);
         printf("====================================\n");
-        printf("1 - Dosar 250 mL\n");
-        printf("2 - Dosar 300 mL\n");
-        printf("3 - Dosar 350 mL\n");
+        printf("1 - Calibracao\n");
+        printf("2 - Dosar 250 mL\n");
+        printf("3 - Dosar 300 mL\n");
+        printf("4 - Dosar 350 mL\n");
         printf("Escolha: ");
 
         char opcao;
@@ -287,14 +376,18 @@ int main()
         switch(opcao)
         {
             case '1':
-                dosar(250);
+                modo_calibracao();
                 break;
 
             case '2':
-                dosar(300);
+                dosar(250);
                 break;
 
             case '3':
+                dosar(300);
+                break;
+
+            case '4':
                 dosar(350);
                 break;
 
