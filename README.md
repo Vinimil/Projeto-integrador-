@@ -1,257 +1,75 @@
 Sistema de Dosagem Automática de Água com Raspberry Pi Pico
 
+1.Integrantes:
 
-Trabalho realizado pelo grupo:
+João Lourenço Medeiros Martins (RA: 22.00369-0)
 
-João Lourenço Medeiros Martins 22.00369-0
-Nicolas Lemos Nunes Tamashiro 22.00728-8
-Theo Franchin Peres 22.01094-7
-Vinicius Filgueiras dos Santos 23.95007-2
+Nicolas Lemos Nunes Tamashiro (RA: 22.00728-8)
 
- Descrição do Projeto:
+Theo Franchin Peres (RA: 22.01094-7)
 
-Este projeto consiste no desenvolvimento de um sistema automatizado para monitoramento de nível e dosagem controlada de água utilizando um Raspberry Pi Pico como unidade de processamento.
-O sistema foi desenvolvido para realizar a transferência de volumes pré-definidos de água entre dois reservatórios através de uma bomba hidráulica controlada eletronicamente. A quantidade de água disponível no reservatório principal é monitorada continuamente por meio de um sensor de nível baseado em um potenciômetro linear acoplado a um mecanismo mecânico de flutuação.
+Vinicius Filgueiras dos Santos (RA: 23.95007-2)
 
-As informações do sistema são exibidas em um display LCD 16x2 com interface I2C, permitindo ao usuário visualizar o volume disponível e acompanhar o processo de dosagem em tempo real.
 
- Objetivos:
+2.Descrição do projeto:
 
-O projeto possui os seguintes objetivos:
+Este projeto consiste no desenvolvimento de um sistema automatizado para monitoramento de nível e dosagem controlada de água utilizando um Raspberry Pi Pico como unidade de processamento. O sistema realiza a transferência de volumes pré-definidos entre dois reservatórios através de uma bomba hidráulica controlada eletronicamente. O volume no reservatório principal é monitorado continuamente via sensor resistivo (potenciômetro linear e mecanismo de flutuação), com exibição em tempo real em um display LCD 16x2 I2C.
 
-Fazer dosagem precisa tirando liquido de um reservatorio principal.
-Converter a posição do sensor em volume real (mL).
-Permitir a seleção de dosagens pré-definidas.
-Controlar automaticamente uma bomba hidráulica.
-Interromper a dosagem ao atingir o volume desejado.
-Exibir informações do processo em um display LCD.
-Desenvolver uma estratégia de controle em malha fechada baseada na realimentação do sensor.
+3.Obejetivos:
 
-- Arquitetura do Sistema
+-Realizar dosagem precisa retirando líquido de um reservatório principal.
+-Converter a posição do sensor em volume real (mL).
+-Permitir a seleção de dosagens pré-definidas.
+-Controlar automaticamente a bomba hidráulica.
+-Interromper a dosagem ao atingir o volume desejado.
+-Exibir informações do processo em um display LCD.
+-Implementar estratégia de controle em malha fechada via realimentação.
 
-O sistema é composto por:
+4.Arquitetura do Sistema:
 
-Reservatório 1:
+4.1 Composição:
+-Reservatório 1: Principal (medição e retirada).
+-Reservatório 2: Receptor.
+-Sensor de Nível: Potenciômetro linear acoplado a flutuador.
+-Raspberry Pi Pico: Responsável por aquisição de sinais, conversão ADC, processamento, controle da bomba e interface LCD.
+-Módulo MOSFET: Acionamento da bomba.
+-Display LCD 16x2 I2C: Interface visual.
 
-Reservatório principal onde ocorre a medição de nível e retirada de liquido.
+4.2Funcionamento Geral:
+-Leitura do sensor de nível.
+-Conversão ADC (12 bits) para valor digital.
+-Conversão do valor ADC para volume (mL) via tabela de calibração.
+-Seleção de dosagem pelo usuário.
+-Cálculo de volume a ser retirado e acionamento da bomba.
+-Leitura, verificação do volume transferido e correção, repetindo o ciclo até atingir a meta.
 
-Reservatório 2:
+5.Hardware:
 
-Reservatório receptor da água dosada.
+Componente             Conexão
 
-Sensor de Nível:
+Potenciômetro          Terminal 1: 3V3 / Cursor: GP26 (ADC0) / Terminal 2: GND
+Display LCD	           VCC: 5V / GND: GND / SDA: GP8 / SCL: GP9
+MOSFET	Gate            GP15
 
-Potenciômetro linear acoplado mecanicamente a um flutuador.
+6.Estratégia de Medição e Calibração:
 
-Raspberry Pi Pico
+-Conversão ADC: Escala de 0 a 4095.
+-Filtragem: Média de 500 amostras consecutivas seguida por um filtro de 20 leituras úteis.
+-Calibração: Utilização de tabela experimental com interpolação linear para valores intermediários.
+-Pontos de calibração: 3057 ADC (0 mL), 3054 ADC (200 mL), 3041 ADC (400 mL), 529 ADC (3000 mL).
 
-Responsável por:
+7.Estratégia de Controle
 
-Aquisição dos sinais.
-Conversão ADC.
-Processamento dos dados.
-Controle da bomba.
-Interface com display LCD.
-Módulo MOSFET
+-Malha Fechada: Realimentação baseada no volume calculado.
+-Controle por Pulsos:
+-Região Longa: Pulsos de 1200 ms (alta velocidade).
+-Região Intermediária: Pulsos de 700 ms (redução de velocidade).
+-Região Final: Pulsos de 300 ms (ajuste fino para precisão).
+-Correção de Volume:
+-Fator de 1.22 para dosagens de 250 mL.
+-Fator de 1.44 para dosagens de 300 mL e 350 mL.
 
-Responsável pelo acionamento da bomba hidráulica.
+8.Interface LCD e Resultados:
 
-Display LCD 16x2 I2C
-
-Responsável pela interface visual do sistema.
-
-
-Funcionamento Geral:
-
-1. O processo inicia com a leitura do sensor de nível.
-
-2. O Raspberry Pi Pico converte a leitura analógica do potenciômetro em um valor digital através do ADC interno de 12 bits.
-
-3.Posteriormente é realizada uma conversão da leitura ADC para volume em mililitros utilizando uma tabela de calibração experimental.
-
-4.Após determinar o volume atual do reservatório, o usuário seleciona uma dosagem.
-
-O sistema então:
-
-Calcula quanto líquido deve ser retirado.
-Aciona a bomba.
-Aguarda estabilização do líquido.
-Realiza nova leitura.
-Verifica o volume já transferido.
-Repete o processo até atingir o valor desejado.
-
-
-Hardware Utilizado:
-
-
-Microcontrolador
-Raspberry Pi Pico
-RP2040 Dual Core
-ADC de 12 bits
-Sensor de Nível
-Potenciômetro Linear
-
-Características:
-
-Alimentação: 3,3 V
-Saída analógica
-Ligado diretamente ao ADC do Pico
-
-Conexões:
-
-Potenciômetro:
-Terminal 1 - 3V3 
-Cursor - GP26 (ADC0)
-Terminal 2 - GND
-
-
-Raspberry Pi Pico
-Terminal 1	3V3
-Cursor	GP26 (ADC0)
-Terminal 2	GND
-
-
-
-Display:
-
-LCD 16x2
-Interface I2C
-Endereço: 0x27
-
-Conexões:
-
-LCD	- Pico
-VCC	- 5V
-GND	- GND
-SDA	- GP8
-SCL- 	GP9
-Acionamento da Bomba
-Gate (Mosfet) - GP15
-
-
-Conexões:
-
-MOSFET	Pico
-Gate	GP15
-
-A bomba é alimentada externamente.
-
- Estratégia de Medição
-Conversão ADC
-
-O ADC interno do RP2040 possui resolução de 12 bits:
-ADC=0→4095
-A tensão do potenciômetro varia conforme o nível da água.
-
-Filtragem:
-
-Cada leitura é obtida através da média de:
-NUM_AMOSTRAS = 500
-leituras consecutivas.
-Posteriormente é aplicada uma segunda filtragem:
-FILTRO_LEITURAS = 20
-reduzindo significativamente ruídos.
-
- Calibração do Sensor
-
-A relação entre ADC e volume não é linear.
-Por isso foi realizada uma calibração experimental.
-Foram coletados diversos pontos:
-
-ADC	Volume (mL)
-3057	0
-3054	200
-3041	400
-529	3000
-
-Esses valores foram armazenados em tabelas no software.
-
-Para valores intermediários utiliza-se uma interpolação linear, permitindo obter uma estimativa contínua do volume.
-
-
-- Estratégia de Controle
-
-Foi implementado um sistema em malha fechada.
-
-Variável Controlada - Volume dosado 
-
-Variável Manipulada - Tempo de acionamento da bomba
-
-
-Variável Medida - Volume calculado pelo sensor.
-
-
-Realimentação:
-
-Após cada pulso da bomba
-
-O sistema mede novamente o nível.
-Calcula o volume transferido.
-Corrige o erro.
-Decide o próximo pulso.
-
-- Controle por Pulsos
-
-A bomba não permanece ligada continuamente, foram definidos três tempos de acionamento:
-
-1200 ms
-700 ms
-300 ms
-
-Região Longa - Quando falta muito para atingir a meta:
-Pulso = 1200 ms
-Maior velocidade de dosagem.
-
-Região Intermediária quando o sistema se aproxima do alvo:
-Pulso = 700 ms
-Redução da velocidade.
-
-Região Final Próximo ao volume desejado:
-
-Pulso = 300 ms
-Maior precisão.
-
-- Desenvolvimento da Correção de Volume
-
-Durante os testes observou-se que:
-O sensor não media exatamente o volume transferido.
-Exemplo:
-Volume físico retirado:
-300 mL
-Volume indicado pelo sensor:
-209 mL
-Portanto foi necessário desenvolver um fator de correção experimental.
-Fator para 250 mL
-Após diversos ensaios:
-1.22
-Fator para 300 e 350 mL
-Após calibração:
-1.44
-O software utiliza automaticamente o fator adequado conforme a dosagem escolhida.
-
-- Interface LCD
-
-Durante a operação o display apresenta:
-
-Tela Inicial
-Volume:
-2450 mL
-Dosagem em Execução
-Dosando...
-250 mL
-Processo Finalizado
-Concluido!
-250 mL
-
-- Resultados Obtidos
-
-Após o processo de calibração foram realizados diversos ensaios experimentais.
-
-Resultados observados:
-
-Dose Solicitada	Resultado Médio
-250 mL	≈ 250 mL
-300 mL	≈ 300 mL
-350 mL	≈ 350 mL
-
-Os testes demonstraram repetibilidade satisfatória para a aplicação proposta.
+Status de Operação: Tela inicial, Dosagem em execução e Processo finalizado.
+Resultados Observados: O sistema apresentou repetibilidade satisfatória, com resultados médios de ≈ 250 mL, ≈ 300 mL e ≈ 350 mL para as respectivas doses solicitadas.
