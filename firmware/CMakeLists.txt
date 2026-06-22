@@ -30,12 +30,9 @@ set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 
 add_executable(proj
-
     main.c
-
     adc.c
     calibracao.c
-
     lcd_i2c.c
 )
 
@@ -44,9 +41,7 @@ target_include_directories(proj PRIVATE
 )
 
 target_link_libraries(proj
-
     pico_stdlib
-
     hardware_adc
     hardware_gpio
     hardware_i2c
