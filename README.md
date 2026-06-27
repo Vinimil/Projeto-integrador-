@@ -10,7 +10,7 @@ Vinicius Filgueiras dos Santos (RA: 23.95007-2)
 
 2.Descrição do projeto:
 
-Este projeto consiste no desenvolvimento de um sistema automatizado para monitoramento de nível e dosagem controlada de água utilizando um Raspberry Pi Pico como unidade de processamento. O sistema realiza a transferência de volumes pré-definidos entre dois reservatórios através de uma bomba hidráulica controlada eletronicamente. O volume no reservatório principal é monitorado continuamente via sensor resistivo (potenciômetro linear e mecanismo de flutuação), com exibição em tempo real em um display LCD 16x2 I2C.
+Este projeto propõe um sistema embarcado de automação para controle de nível e dosagem volumétrica de fluidos entre reservatórios (TK-101 e TK-102), utilizando um Raspberry Pi Pico (RP2040) como unidade central de processamento. A automação integra um transdutor de nível resistivo (potenciômetro linear) condicionado por filtros digitais FIR, IHM em display LCD I2C e acionamento de potência via optoacoplamento e MOSFET, garantindo isolamento galvânico e controle preciso de vazão por modulação de pulsos.
 
 3.Objetivos:
 
@@ -37,7 +37,7 @@ Este projeto consiste no desenvolvimento de um sistema automatizado para monitor
 -Conversão ADC (12 bits) para valor digital.
 -Conversão do valor ADC para volume (mL) via tabela de calibração.
 -Seleção de dosagem pelo usuário.
--Cálculo de volume a ser retirado e acionamento da bomba.
+-Cálculo do erro de dosagem em tempo real e acionamento da bomba via malha fechada com realimentação contínua, utilizando zonas de tempo (1200ms, 700ms e 300ms) para amortecimento da inércia mecânica.
 -Leitura, verificação do volume transferido e correção, repetindo o ciclo até atingir a meta.
 
 5.Hardware:
